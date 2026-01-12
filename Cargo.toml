@@ -18,7 +18,7 @@ byteorder = {version = "1", default-features = false}
 defmt = {version = "1.0.1", optional = true}
 embedded-hal = "1.0.0"
 embedded-io = "0.6.1"
-heapless = "0.9.1"
+# heapless = {version = "0.9.1", features=["nightly"]}
 log = {version = "0.4", default-features = false, optional = true}
 
 [dev-dependencies]
