@@ -2,8 +2,8 @@
 //!
 //! The volume manager handles partitions and open files on a block device.
 
-use core::convert::TryFrom;
 use core::ops::DerefMut;
+use core::{convert::TryFrom, fmt::Display};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
 
 use byteorder::{ByteOrder, LittleEndian};
@@ -1136,7 +1136,7 @@ where
 
     fn get_volume_by_id<E>(&self, raw_volume: RawVolume) -> Result<usize, Error<E>>
     where
-        E: core::fmt::Debug,
+        E: core::fmt::Debug + Display,
     {
         for (idx, v) in self.open_volumes.iter().enumerate() {
             if v.raw_volume == raw_volume {
@@ -1148,7 +1148,7 @@ where
 
     fn get_dir_by_id<E>(&self, raw_directory: RawDirectory) -> Result<usize, Error<E>>
     where
-        E: core::fmt::Debug,
+        E: core::fmt::Debug + Display,
     {
         for (idx, d) in self.open_dirs.iter().enumerate() {
             if d.raw_directory == raw_directory {
@@ -1160,7 +1160,7 @@ where
 
     fn get_file_by_id<E>(&self, raw_file: RawFile) -> Result<usize, Error<E>>
     where
-        E: core::fmt::Debug,
+        E: core::fmt::Debug + Display,
     {
         for (idx, f) in self.open_files.iter().enumerate() {
             if f.raw_file == raw_file {

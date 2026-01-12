@@ -208,7 +208,7 @@ impl<
         if buf.is_empty() {
             Ok(0)
         } else {
-            File::write(self, buf)?;
+            File::write(self, buf).await?;
             Ok(buf.len())
         }
     }
