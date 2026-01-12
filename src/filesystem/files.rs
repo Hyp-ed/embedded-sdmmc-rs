@@ -3,7 +3,7 @@ use crate::{
     filesystem::{ClusterId, DirEntry, Handle},
     BlockDevice, Error, RawVolume, VolumeManager,
 };
-use embedded_io::{ErrorType, Read, Seek, SeekFrom, Write};
+use embedded_io_async::{ErrorType, Read, Seek, SeekFrom, Write};
 
 /// A handle for an open file on disk.
 ///
@@ -204,7 +204,7 @@ impl<
         const MAX_VOLUMES: usize,
     > Write for File<'_, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
 {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+    async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         if buf.is_empty() {
             Ok(0)
         } else {
@@ -213,7 +213,7 @@ impl<
         }
     }
 
-    fn flush(&mut self) -> Result<(), Self::Error> {
+    async fn flush(&mut self) -> Result<(), Self::Error> {
         Self::flush(self)
     }
 }
@@ -226,7 +226,7 @@ impl<
         const MAX_VOLUMES: usize,
     > Seek for File<'_, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
 {
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
+    async fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
         match pos {
             SeekFrom::Start(offset) => {
                 self.seek_from_start(offset.try_into().map_err(|_| Error::InvalidOffset)?)?

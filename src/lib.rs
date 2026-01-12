@@ -94,8 +94,8 @@ pub mod fat;
 pub mod filesystem;
 pub mod sdcard;
 
-use core::fmt::Debug;
-use embedded_io::ErrorKind;
+use core::fmt::{Debug, Display};
+use embedded_io_async::ErrorKind;
 use filesystem::Handle;
 
 #[doc(inline)]
@@ -113,9 +113,11 @@ pub use crate::filesystem::{
 use filesystem::DirectoryInfo;
 
 #[doc(inline)]
+#[cfg(not(feature = "async"))]
 pub use crate::sdcard::Error as SdCardError;
 
 #[doc(inline)]
+#[cfg(not(feature = "async"))]
 pub use crate::sdcard::SdCard;
 
 mod volume_mgr;
@@ -163,7 +165,7 @@ macro_rules! warn {
 #[derive(Debug, Clone)]
 pub enum Error<E>
 where
-    E: core::fmt::Debug,
+    E: core::fmt::Debug + core::fmt::Display,
 {
     /// The underlying block device threw an error.
     DeviceError(E),
@@ -230,7 +232,7 @@ where
     LockError,
 }
 
-impl<E: Debug> embedded_io::Error for Error<E> {
+impl<E: Debug + Display> embedded_io_async::Error for Error<E> {
     fn kind(&self) -> ErrorKind {
         match self {
             Error::DeviceError(_)
@@ -267,7 +269,7 @@ impl<E: Debug> embedded_io::Error for Error<E> {
 
 impl<E> From<E> for Error<E>
 where
-    E: core::fmt::Debug,
+    E: core::fmt::Debug + Display,
 {
     fn from(value: E) -> Error<E> {
         Error::DeviceError(value)

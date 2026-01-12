@@ -79,7 +79,7 @@ impl Default for Block {
 /// sectors). Only supports devices which are <= 2 TiB in size.
 pub trait BlockDevice {
     /// The errors that the `BlockDevice` can return. Must be debug formattable.
-    type Error: core::fmt::Debug;
+    type Error: core::fmt::Debug + core::fmt::Display + embedded_io_async::Error;
     /// Read one or more blocks, starting at the given block index.
     fn read(
         &self,
