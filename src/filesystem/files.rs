@@ -131,16 +131,16 @@ where
     }
 
     /// Flush any written data by updating the directory entry.
-    pub fn flush(&self) -> Result<(), Error<D::Error>> {
-        self.volume_mgr.flush_file(self.raw_file)
+    pub async fn flush(&self) -> Result<(), Error<D::Error>> {
+        self.volume_mgr.flush_file(self.raw_file).await
     }
 
     /// Consume the `File` handle and close it. The behavior of this is similar
     /// to using [`core::mem::drop`] or letting the `File` go out of scope,
     /// except this lets the user handle any errors that may occur in the process,
     /// whereas when using drop, any errors will be discarded silently.
-    pub fn close(self) -> Result<(), Error<D::Error>> {
-        let result = self.volume_mgr.close_file(self.raw_file);
+    pub async fn close(self) -> Result<(), Error<D::Error>> {
+        let result = self.volume_mgr.close_file(self.raw_file).await;
         core::mem::forget(self);
         result
     }
@@ -153,7 +153,7 @@ where
     T: crate::TimeSource,
 {
     fn drop(&mut self) {
-        _ = self.volume_mgr.close_file(self.raw_file);
+        let _ = futures::executor::block_on(self.volume_mgr.close_file(self.raw_file));
     }
 }
 
@@ -214,7 +214,7 @@ impl<
     }
 
     async fn flush(&mut self) -> Result<(), Self::Error> {
-        Self::flush(self)
+        Self::flush(self).await
     }
 }
 

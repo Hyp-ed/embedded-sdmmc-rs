@@ -412,7 +412,7 @@ where
     /// except this lets the user handle any errors that may occur in the process,
     /// whereas when using drop, any errors will be discarded silently.
     pub fn close(self) -> Result<(), Error<D::Error>> {
-        let result = self.volume_mgr.close_volume(self.raw_volume);
+        let result = futures::executor::block_on(self.volume_mgr.close_volume(self.raw_volume));
         core::mem::forget(self);
         result
     }
@@ -425,7 +425,7 @@ where
     T: crate::TimeSource,
 {
     fn drop(&mut self) {
-        _ = self.volume_mgr.close_volume(self.raw_volume)
+        let _ = futures::executor::block_on(self.volume_mgr.close_volume(self.raw_volume));
     }
 }
 
