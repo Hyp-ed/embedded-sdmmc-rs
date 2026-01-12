@@ -1,3 +1,4 @@
+#![cfg(not(feature = "async"))]
 //! Implements the BlockDevice trait for an SD/MMC Protocol over SPI.
 //!
 //! This is currently optimised for readability and debugability, not
@@ -192,6 +193,7 @@ where
 /// Inner details for the SD Card driver.
 ///
 /// All the APIs required `&mut self`.
+
 struct SdCardInner<SPI, DELAYER>
 where
     SPI: embedded_hal::spi::SpiDevice<u8>,

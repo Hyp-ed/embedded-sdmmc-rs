@@ -107,11 +107,11 @@ where
     ///
     /// We do not support GUID Partition Table disks. Nor do we support any
     /// concept of drive letters - that is for a higher layer to handle.
-    pub fn open_volume(
+    pub async fn open_volume(
         &self,
         volume_idx: VolumeIdx,
     ) -> Result<Volume<'_, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, Error<D::Error>> {
-        let v = self.open_raw_volume(volume_idx)?;
+        let v = self.open_raw_volume(volume_idx).await?;
         Ok(v.to_volume(self))
     }
 
@@ -122,7 +122,10 @@ where
     ///
     /// This function gives you a `RawVolume` and you must close the volume by
     /// calling `VolumeManager::close_volume`.
-    pub fn open_raw_volume(&self, volume_idx: VolumeIdx) -> Result<RawVolume, Error<D::Error>> {
+    pub async fn open_raw_volume(
+        &self,
+        volume_idx: VolumeIdx,
+    ) -> Result<RawVolume, Error<D::Error>> {
         const PARTITION1_START: usize = 446;
         const PARTITION2_START: usize = PARTITION1_START + PARTITION_INFO_LENGTH;
         const PARTITION3_START: usize = PARTITION2_START + PARTITION_INFO_LENGTH;
@@ -152,6 +155,7 @@ where
             let block = data
                 .block_cache
                 .read(BlockIdx(0))
+                .await
                 .map_err(Error::DeviceError)?;
             // We only support Master Boot Record (MBR) partitioned cards, not
             // GUID Partition Table (GPT)
@@ -736,7 +740,7 @@ where
     }
 
     /// Read from an open file.
-    pub fn read(&self, file: RawFile, buffer: &mut [u8]) -> Result<usize, Error<D::Error>> {
+    pub async fn read(&self, file: RawFile, buffer: &mut [u8]) -> Result<usize, Error<D::Error>> {
         let mut data = self.data.try_lock().map_err(|_| Error::LockError)?;
         let data = data.deref_mut();
 
@@ -761,6 +765,7 @@ where
             let block = data
                 .block_cache
                 .read(block_idx)
+                .await
                 .map_err(Error::DeviceError)?;
             let to_copy = block_avail
                 .min(space)
@@ -778,7 +783,7 @@ where
     }
 
     /// Write to a open file.
-    pub fn write(&self, file: RawFile, buffer: &[u8]) -> Result<(), Error<D::Error>> {
+    pub async fn write(&self, file: RawFile, buffer: &[u8]) -> Result<(), Error<D::Error>> {
         #[cfg(feature = "defmt-log")]
         debug!("write(file={:?}, buffer={:x}", file, buffer);
 
@@ -886,12 +891,13 @@ where
                 debug!("Reading for partial block write");
                 data.block_cache
                     .read_mut(block_idx)
+                    .await
                     .map_err(Error::DeviceError)?
             };
             block[block_offset..block_offset + to_copy]
                 .copy_from_slice(&buffer[written..written + to_copy]);
             debug!("Writing block {:?}", block_idx);
-            data.block_cache.write_back()?;
+            data.block_cache.write_back().await?;
             written += to_copy;
             data.open_files[file_idx].current_cluster = current_cluster;
 

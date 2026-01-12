@@ -31,7 +31,8 @@ hex-literal = "1.0.0"
 sha2 = "0.10"
 
 [features]
-default = ["log"]
+default = ["log", "async"]
 defmt-log = ["dep:defmt"]
 log = ["dep:log"]
+async = []
 core-error = []

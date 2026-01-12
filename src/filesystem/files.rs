@@ -76,19 +76,20 @@ where
     /// Read from the file
     ///
     /// Returns how many bytes were read, or an error.
-    pub fn read(&self, buffer: &mut [u8]) -> Result<usize, crate::Error<D::Error>> {
-        self.volume_mgr.read(self.raw_file, buffer)
+    pub async fn read(&self, buffer: &mut [u8]) -> Result<usize, crate::Error<D::Error>> {
+        self.volume_mgr.read(self.raw_file, buffer).await
     }
 
     /// Write to the file
-    pub fn write(&self, buffer: &[u8]) -> Result<(), crate::Error<D::Error>> {
-        self.volume_mgr.write(self.raw_file, buffer)
+    pub async fn write(&self, buffer: &[u8]) -> Result<(), crate::Error<D::Error>> {
+        self.volume_mgr.write(self.raw_file, buffer).await
     }
 
     /// Check if a file is at End Of File.
-    pub fn is_eof(&self) -> bool {
+    pub async fn is_eof(&self) -> bool {
         self.volume_mgr
             .file_eof(self.raw_file)
+            .await
             .expect("Corrupt file ID")
     }
 
@@ -186,11 +187,11 @@ impl<
         const MAX_VOLUMES: usize,
     > Read for File<'_, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
 {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+    async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         if buf.is_empty() {
             Ok(0)
         } else {
-            File::read(self, buf)
+            File::read(self, buf).await
         }
     }
 }
