@@ -6,7 +6,7 @@ mod utils;
 fn open_all_volumes() {
     let time_source = utils::make_time_source();
     let disk = utils::make_block_device(utils::DISK_SOURCE).unwrap();
-    let volume_mgr: embedded_sdmmc::VolumeManager<
+    let mut volume_mgr: embedded_sdmmc::VolumeManager<
         utils::RamDisk<Vec<u8>>,
         utils::TestTimeSource,
         4,
@@ -82,7 +82,7 @@ fn open_all_volumes() {
 fn close_volume_too_early() {
     let time_source = utils::make_time_source();
     let disk = utils::make_block_device(utils::DISK_SOURCE).unwrap();
-    let volume_mgr = embedded_sdmmc::VolumeManager::new(disk, time_source);
+    let mut volume_mgr = embedded_sdmmc::VolumeManager::new(disk, time_source);
 
     let volume = volume_mgr
         .open_raw_volume(embedded_sdmmc::VolumeIdx(0))
@@ -112,7 +112,7 @@ fn close_volume_too_early() {
 fn has_open_handles_reports_open_dirs() {
     let time_source = utils::make_time_source();
     let disk = utils::make_block_device(utils::DISK_SOURCE).unwrap();
-    let volume_mgr = embedded_sdmmc::VolumeManager::new(disk, time_source);
+    let mut volume_mgr = embedded_sdmmc::VolumeManager::new(disk, time_source);
 
     // No handles open
     assert!(!volume_mgr.has_open_handles());

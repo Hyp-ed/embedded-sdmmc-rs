@@ -8,7 +8,7 @@ mod utils;
 fn open_files() {
     let time_source = utils::make_time_source();
     let disk = utils::make_block_device(utils::DISK_SOURCE).unwrap();
-    let volume_mgr: VolumeManager<utils::RamDisk<Vec<u8>>, utils::TestTimeSource, 4, 2, 1> =
+    let mut volume_mgr: VolumeManager<utils::RamDisk<Vec<u8>>, utils::TestTimeSource, 4, 2, 1> =
         VolumeManager::new_with_limits(disk, time_source, 0xAA00_0000);
     let volume = volume_mgr
         .open_raw_volume(VolumeIdx(0))
@@ -95,7 +95,7 @@ fn open_files() {
 fn open_lfn() {
     let time_source = utils::make_time_source();
     let disk = utils::make_block_device(utils::DISK_SOURCE).unwrap();
-    let volume_mgr: VolumeManager<utils::RamDisk<Vec<u8>>, utils::TestTimeSource, 4, 2, 1> =
+    let mut volume_mgr: VolumeManager<utils::RamDisk<Vec<u8>>, utils::TestTimeSource, 4, 2, 1> =
         VolumeManager::new_with_limits(disk, time_source, 0xAA00_0000);
     let volume = volume_mgr.open_volume(VolumeIdx(1)).expect("open volume");
     let root_dir = volume.open_root_dir().expect("open root dir");
@@ -129,7 +129,7 @@ fn open_lfn() {
 fn open_non_raw() {
     let time_source = utils::make_time_source();
     let disk = utils::make_block_device(utils::DISK_SOURCE).unwrap();
-    let volume_mgr: VolumeManager<utils::RamDisk<Vec<u8>>, utils::TestTimeSource, 4, 2, 1> =
+    let mut volume_mgr: VolumeManager<utils::RamDisk<Vec<u8>>, utils::TestTimeSource, 4, 2, 1> =
         VolumeManager::new_with_limits(disk, time_source, 0xAA00_0000);
     let volume = volume_mgr.open_volume(VolumeIdx(0)).expect("open volume");
     let root_dir = volume.open_root_dir().expect("open root dir");
