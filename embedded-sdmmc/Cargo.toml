@@ -37,7 +37,7 @@ anyhow = "1"
 hex-literal.workspace = true
 
 [features]
-default = ["log"]
+default = ["defmt-log"]
 defmt-log = ["dep:defmt", "arbitrary-int/defmt", "embedded-sdmmc-types/defmt"]
 log = ["dep:log"]
 

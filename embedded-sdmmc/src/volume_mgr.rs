@@ -38,7 +38,7 @@ pub struct VolumeManager<
     T: TimeSource,
 {
     time_source: T,
-    data: RefCell<VolumeManagerData<D, MAX_DIRS, MAX_FILES, MAX_VOLUMES>>,
+    data: VolumeManagerData<D, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
 }
 
 impl<D, T> VolumeManager<D, T, 4, 4>
