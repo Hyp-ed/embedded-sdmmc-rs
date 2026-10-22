@@ -11,8 +11,8 @@ use heapless::Vec;
 use crate::{
     Block, BlockCache, BlockCount, BlockDevice, BlockIdx, Error, PARTITION_ID_FAT16,
     PARTITION_ID_FAT16_LBA, PARTITION_ID_FAT16_SMALL, PARTITION_ID_FAT32_CHS_LBA,
-    PARTITION_ID_FAT32_LBA, RawVolume, ShortFileName, Volume, VolumeIdx, VolumeInfo, VolumeType,
-    debug, fat,
+    PARTITION_ID_FAT32_LBA, RawVolume, ShortFileName, VolumeIdx, VolumeInfo, VolumeType, debug,
+    fat,
     filesystem::{
         Attributes, ClusterId, DirEntry, DirectoryInfo, FileInfo, HandleGenerator, LfnBuffer,
         MAX_FILE_SIZE, Mode, RawDirectory, RawFile, TimeSource, ToShortFileName,
@@ -94,18 +94,6 @@ where
         let data = &mut self.data;
 
         f(data.block_cache.block_device())
-    }
-
-    /// Get a volume (or partition) based on entries in the Master Boot Record.
-    ///
-    /// We do not support GUID Partition Table disks. Nor do we support any
-    /// concept of drive letters - that is for a higher layer to handle.
-    pub async fn open_volume(
-        &mut self,
-        volume_idx: VolumeIdx,
-    ) -> Result<Volume<'_, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, Error<D::Error>> {
-        let v = self.open_raw_volume(volume_idx).await?;
-        Ok(v.to_volume(self))
     }
 
     /// Get a volume (or partition) based on entries in the Master Boot Record.
@@ -993,28 +981,28 @@ where
             }
         }
 
-        // Nothing in the BPB, let's do it the slow way
-        let root_dir = self.open_root_dir(raw_volume)?.to_directory(self);
-        let mut maybe_volume_name = None;
-        root_dir
-            .iterate_dir(|de| {
-                if maybe_volume_name.is_none()
-                    && de.attributes == Attributes::create_from_fat(Attributes::VOLUME)
-                {
-                    maybe_volume_name = Some(unsafe { de.name.to_volume_label() });
-                    ControlFlow::Break(())
-                } else {
-                    ControlFlow::Continue(())
-                }
-            })
-            .await?;
+        // let root_dir = self.open_root_dir(raw_volume)?;
+        //
+        // let mut maybe_volume_name = None;
+        // root_dir
+        //     .iterate_dir(|de| {
+        //         if maybe_volume_name.is_none()
+        //             && de.attributes == Attributes::create_from_fat(Attributes::VOLUME)
+        //         {
+        //             maybe_volume_name = Some(unsafe { de.name.to_volume_label() });
+        //             ControlFlow::Break(())
+        //         } else {
+        //             ControlFlow::Continue(())
+        //         }
+        //     })
+        //     .await?;
 
-        debug!(
-            "Got volume label {:?} for {:?} from root",
-            maybe_volume_name, raw_volume
-        );
+        // debug!(
+        //     "Got volume label {:?} for {:?} from root",
+        //     maybe_volume_name, raw_volume
+        // );
 
-        Ok(maybe_volume_name)
+        Ok(None)
     }
 
     /// Read from an open file.

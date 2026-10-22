@@ -90,7 +90,6 @@ pub use embedded_sdmmc_types;
 pub use embedded_sdmmc_types::blockdevice;
 pub mod fat;
 pub mod filesystem;
-pub mod sdcard;
 
 use core::fmt::Debug;
 use embedded_io::ErrorKind;
@@ -104,17 +103,11 @@ pub use crate::fat::{FatVolume, VolumeName};
 
 #[doc(inline)]
 pub use crate::filesystem::{
-    Attributes, ClusterId, DirEntry, Directory, File, FilenameError, LfnBuffer, MAX_FILE_SIZE,
-    Mode, RawDirectory, RawFile, ShortFileName, TimeSource, Timestamp,
+    Attributes, ClusterId, DirEntry, FilenameError, LfnBuffer, MAX_FILE_SIZE, Mode, RawDirectory,
+    RawFile, ShortFileName, TimeSource, Timestamp,
 };
 
 use filesystem::DirectoryInfo;
-
-#[doc(inline)]
-pub use crate::sdcard::spi::Error as SdCardError;
-
-#[doc(inline)]
-pub use crate::sdcard::spi::SdCard;
 
 mod volume_mgr;
 #[doc(inline)]
@@ -307,26 +300,6 @@ impl<E: core::error::Error + 'static> embedded_io::Error for Error<E> {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct RawVolume(Handle);
 
-impl RawVolume {
-    /// Convert a raw volume into a droppable [`Volume`]
-    pub fn to_volume<
-        D,
-        T,
-        const MAX_DIRS: usize,
-        const MAX_FILES: usize,
-        const MAX_VOLUMES: usize,
-    >(
-        self,
-        volume_mgr: &VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-    ) -> Volume<'_, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
-    where
-        D: crate::BlockDevice,
-        T: crate::TimeSource,
-    {
-        Volume::new(self, volume_mgr)
-    }
-}
-
 /// A caching layer for block devices
 ///
 /// Caches a single block.
@@ -415,103 +388,6 @@ where
     }
 }
 
-/// A handle for an open volume on disk, which closes on drop.
-///
-/// In contrast to a `RawVolume`, a `Volume` holds a mutable reference to its
-/// parent `VolumeManager`, which restricts which operations you can perform.
-///
-/// If you drop a value of this type, it closes the volume automatically, but
-/// any error that may occur will be ignored. To handle potential errors, use
-/// the [`Volume::close`] method.
-pub struct Volume<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
-where
-    D: crate::BlockDevice,
-    T: crate::TimeSource,
-{
-    raw_volume: RawVolume,
-    volume_mgr: &'a VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-}
-
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
-    Volume<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
-where
-    D: crate::BlockDevice,
-    T: crate::TimeSource,
-{
-    /// Create a new `Volume` from a `RawVolume`
-    pub fn new(
-        raw_volume: RawVolume,
-        volume_mgr: &'a VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-    ) -> Self {
-        Volume {
-            raw_volume,
-            volume_mgr,
-        }
-    }
-
-    /// Open the volume's root directory.
-    ///
-    /// You can then read the directory entries with `iterate_dir`, or you can
-    /// use `open_file_in_dir`.
-    pub fn open_root_dir(
-        &self,
-    ) -> Result<crate::Directory<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, Error<D::Error>> {
-        let d = self.volume_mgr.open_root_dir(self.raw_volume)?;
-        Ok(d.to_directory(self.volume_mgr))
-    }
-
-    /// Convert back to a raw volume
-    pub fn to_raw_volume(self) -> RawVolume {
-        let v = self.raw_volume;
-        core::mem::forget(self);
-        v
-    }
-
-    /// Consume the `Volume` handle and close it. The behavior of this is similar
-    /// to using [`core::mem::drop`] or letting the `Volume` go out of scope,
-    /// except this lets the user handle any errors that may occur in the process,
-    /// whereas when using drop, any errors will be discarded silently.
-    pub fn close(self) -> Result<(), Error<D::Error>> {
-        let result = self.volume_mgr.close_volume(self.raw_volume);
-        core::mem::forget(self);
-        result
-    }
-}
-
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize> Drop
-    for Volume<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
-where
-    D: crate::BlockDevice,
-    T: crate::TimeSource,
-{
-    fn drop(&mut self) {
-        _ = volume_mgr.close_volume(self.raw_volume)
-    }
-}
-
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
-    core::fmt::Debug for Volume<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
-where
-    D: crate::BlockDevice,
-    T: crate::TimeSource,
-{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Volume({})", self.raw_volume.0.0)
-    }
-}
-
-#[cfg(feature = "defmt-log")]
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
-    defmt::Format for Volume<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
-where
-    D: crate::BlockDevice,
-    T: crate::TimeSource,
-{
-    fn format(&self, fmt: defmt::Formatter) {
-        defmt::write!(fmt, "Volume({})", self.raw_volume.0.0)
-    }
-}
-
 /// Internal information about a Volume
 #[cfg_attr(feature = "defmt-log", derive(defmt::Format))]
 #[derive(Debug, PartialEq, Eq)]
@@ -560,8 +436,319 @@ const PARTITION_ID_FAT32_CHS_LBA: u8 = 0x0B;
 // Unit Tests
 //
 // ****************************************************************************
-
-// None
+//
+// #[cfg(test)]
+// mod tests;
+//
+// #[cfg(test)]
+// mod testsa {
+//     use super::*;
+//
+//     mod utils {
+//         use super::*;
+//         use std::io::prelude::*;
+//
+//         /// This file contains:
+//         ///
+//         /// ```console
+//         /// $ fdisk ./disk.img
+//         /// Disk: ./disk.img    geometry: 520/32/63 [1048576 sectors]
+//         /// Signature: 0xAA55
+//         ///          Starting       Ending
+//         ///  #: id  cyl  hd sec -  cyl  hd sec [     start -       size]
+//         /// ------------------------------------------------------------------------
+//         ///  1: 0E    0  32  33 -   16 113  33 [      2048 -     262144] DOS FAT-16
+//         ///  2: 0C   16 113  34 -   65  69   4 [    264192 -     784384] Win95 FAT32L
+//         ///  3: 00    0   0   0 -    0   0   0 [         0 -          0] unused
+//         ///  4: 00    0   0   0 -    0   0   0 [         0 -          0] unused
+//         /// $ ls -l /Volumes/P-FAT16
+//         /// total 131080
+//         /// -rwxrwxrwx  1 jonathan  staff  67108864  9 Dec  2018 64MB.DAT
+//         /// -rwxrwxrwx  1 jonathan  staff         0  9 Dec  2018 EMPTY.DAT
+//         /// -rwxrwxrwx@ 1 jonathan  staff       258  9 Dec  2018 README.TXT
+//         /// drwxrwxrwx  1 jonathan  staff      2048  9 Dec  2018 TEST
+//         /// $ ls -l /Volumes/P-FAT16/TEST
+//         /// total 8
+//         /// -rwxrwxrwx  1 jonathan  staff  3500  9 Dec  2018 TEST.DAT
+//         /// $ ls -l /Volumes/P-FAT32
+//         /// total 131088
+//         /// -rwxrwxrwx  1 jonathan  staff  67108864  9 Dec  2018 64MB.DAT
+//         /// -rwxrwxrwx  1 jonathan  staff         0  9 Dec  2018 EMPTY.DAT
+//         /// -rwxrwxrwx@ 1 jonathan  staff       258 21 Sep 09:48 README.TXT
+//         /// drwxrwxrwx  1 jonathan  staff      4096  9 Dec  2018 TEST
+//         /// $ ls -l /Volumes/P-FAT32/TEST
+//         /// total 8
+//         /// -rwxrwxrwx  1 jonathan  staff  3500  9 Dec  2018 TEST.DAT
+//         /// ```
+//         ///
+//         /// It will unpack to a Vec that is 1048576 * 512 = 512 MiB in size.
+//         pub static DISK_SOURCE: &[u8] = include_bytes!("../tests/disk.img.gz");
+//
+//         #[derive(Debug, thiserror::Error)]
+//         #[allow(dead_code)]
+//         pub enum Error {
+//             /// Failed to read the source image
+//             #[error("I/O error: {0}")]
+//             Io(#[from] std::io::Error),
+//             /// Failed to unzip the source image
+//             #[error("flate2 decode error: {0}")]
+//             Decode(#[from] flate2::DecompressError),
+//             /// Asked for a block we don't have
+//             #[error("out of bounds block index: {0:?}")]
+//             OutOfBounds(BlockIdx),
+//         }
+//
+//         /// Implements the block device traits for a chunk of bytes in RAM.
+//         ///
+//         /// The slice should be a multiple of `embedded_sdmmc::Block::LEN` bytes in
+//         /// length. If it isn't the trailing data is discarded.
+//         pub struct RamDisk<T> {
+//             contents: std::cell::RefCell<T>,
+//         }
+//
+//         impl<T> RamDisk<T> {
+//             fn new(contents: T) -> RamDisk<T> {
+//                 RamDisk {
+//                     contents: std::cell::RefCell::new(contents),
+//                 }
+//             }
+//         }
+//
+//         impl<T> BlockDevice for RamDisk<T>
+//         where
+//             T: AsMut<[u8]> + AsRef<[u8]>,
+//         {
+//             type Error = Error;
+//
+//             async fn read(
+//                 &self,
+//                 blocks: &mut [Block],
+//                 start_block_idx: BlockIdx,
+//             ) -> Result<(), Self::Error> {
+//                 let borrow = self.contents.borrow();
+//                 let contents: &[u8] = borrow.as_ref();
+//                 let mut block_idx = start_block_idx;
+//                 for block in blocks.iter_mut() {
+//                     let start_offset = block_idx.0 as usize * Block::LEN;
+//                     let end_offset = start_offset + Block::LEN;
+//                     if end_offset > contents.len() {
+//                         return Err(Error::OutOfBounds(block_idx));
+//                     }
+//                     block
+//                         .as_mut_slice()
+//                         .copy_from_slice(&contents[start_offset..end_offset]);
+//                     block_idx.0 += 1;
+//                 }
+//                 Ok(())
+//             }
+//
+//             async fn write(
+//                 &self,
+//                 blocks: &[Block],
+//                 start_block_idx: BlockIdx,
+//             ) -> Result<(), Self::Error> {
+//                 let mut borrow = self.contents.borrow_mut();
+//                 let contents: &mut [u8] = borrow.as_mut();
+//                 let mut block_idx = start_block_idx;
+//                 for block in blocks.iter() {
+//                     let start_offset = block_idx.0 as usize * Block::LEN;
+//                     let end_offset = start_offset + Block::LEN;
+//                     if end_offset > contents.len() {
+//                         return Err(Error::OutOfBounds(block_idx));
+//                     }
+//                     contents[start_offset..end_offset].copy_from_slice(block.as_slice());
+//                     block_idx.0 += 1;
+//                 }
+//                 Ok(())
+//             }
+//
+//             async fn num_blocks(&self) -> Result<BlockCount, Self::Error> {
+//                 let borrow = self.contents.borrow();
+//                 let contents: &[u8] = borrow.as_ref();
+//                 let len_blocks = contents.len() / Block::LEN;
+//                 if len_blocks > u32::MAX as usize {
+//                     panic!("Test disk too large! Only 2**32 blocks allowed");
+//                 }
+//                 Ok(BlockCount(len_blocks as u32))
+//             }
+//         }
+//
+//         /// Unpack the fixed, static, disk image.
+//         fn unpack_disk(gzip_bytes: &[u8]) -> Result<Vec<u8>, Error> {
+//             let disk_cursor = std::io::Cursor::new(gzip_bytes);
+//             let mut gz_decoder = flate2::read::GzDecoder::new(disk_cursor);
+//             let mut output = Vec::with_capacity(512 * 1024 * 1024);
+//             gz_decoder.read_to_end(&mut output)?;
+//             Ok(output)
+//         }
+//
+//         /// Turn some gzipped bytes into a block device,
+//         pub fn make_block_device(gzip_bytes: &[u8]) -> Result<RamDisk<Vec<u8>>, Error> {
+//             let data = unpack_disk(gzip_bytes)?;
+//             Ok(RamDisk::new(data))
+//         }
+//
+//         pub struct TestTimeSource {
+//             fixed: Timestamp,
+//         }
+//
+//         impl TimeSource for TestTimeSource {
+//             fn get_timestamp(&self) -> Timestamp {
+//                 self.fixed
+//             }
+//         }
+//
+//         /// Make a time source that gives a fixed time.
+//         ///
+//         /// It always claims to be 4 April 2003, at 13:30:05.
+//         ///
+//         /// This is an interesting time, because FAT will round it down to 13:30:04 due
+//         /// to only have two-second resolution. Hey, Real Time Clocks were optional back
+//         /// in 1981.
+//         pub fn make_time_source() -> TestTimeSource {
+//             TestTimeSource {
+//                 fixed: Timestamp {
+//                     year_since_1970: 33,
+//                     zero_indexed_month: 3,
+//                     zero_indexed_day: 3,
+//                     hours: 13,
+//                     minutes: 30,
+//                     seconds: 5,
+//                 },
+//             }
+//         }
+//
+//         /// Get the test time source time, as a string.
+//         ///
+//         /// We apply the FAT 2-second rounding here.
+//         #[allow(unused)]
+//         pub fn get_time_source_string() -> &'static str {
+//             "2003-04-04 13:30:04"
+//         }
+//
+//         // ****************************************************************************
+//         //
+//         // End Of File
+//         //
+//         // ****************************************************************************
+//     }
+//
+//     #[test]
+//     fn open_files() {
+//         let runtime = tokio::runtime::Builder::new_multi_thread()
+//             .name("test")
+//             .build()
+//             .expect("Failed to start a tokio runtime");
+//
+//         runtime.block_on(async move {
+//             let time_source = utils::make_time_source();
+//             let disk = utils::make_block_device(utils::DISK_SOURCE).unwrap();
+//             let mut volume_mgr: VolumeManager<
+//                 utils::RamDisk<Vec<u8>>,
+//                 utils::TestTimeSource,
+//                 4,
+//                 2,
+//                 1,
+//             > = VolumeManager::new_with_limits(disk, time_source, 0xAA00_0000);
+//             let volume = volume_mgr
+//                 .open_raw_volume(VolumeIdx(0))
+//                 .await
+//                 .expect("open volume");
+//             let root_dir = volume_mgr.open_root_dir(volume).expect("open root dir");
+//
+//             // Open with string
+//             let f = volume_mgr
+//                 .open_file_in_dir(root_dir, "README.TXT", Mode::ReadWriteTruncate)
+//                 .await
+//                 .expect("open file");
+//
+//             assert!(matches!(
+//                 volume_mgr
+//                     .open_file_in_dir(root_dir, "README.TXT", Mode::ReadOnly)
+//                     .await,
+//                 Err(Error::FileAlreadyOpen)
+//             ));
+//
+//             volume_mgr.close_file(f).await.expect("close file");
+//
+//             // Open with SFN
+//
+//             let dir_entry = volume_mgr
+//                 .find_directory_entry(root_dir, "README.TXT")
+//                 .await
+//                 .expect("find file");
+//
+//             let f = volume_mgr
+//                 .open_file_in_dir(root_dir, &dir_entry.name, Mode::ReadWriteCreateOrAppend)
+//                 .await
+//                 .expect("open file with dir entry");
+//
+//             assert!(matches!(
+//                 volume_mgr
+//                     .open_file_in_dir(root_dir, &dir_entry.name, Mode::ReadOnly)
+//                     .await,
+//                 Err(Error::FileAlreadyOpen)
+//             ));
+//
+//             // Can still spot duplicates even if name given the other way around
+//
+//             assert!(matches!(
+//                 volume_mgr
+//                     .open_file_in_dir(root_dir, "README.TXT", Mode::ReadOnly)
+//                     .await,
+//                 Err(Error::FileAlreadyOpen)
+//             ));
+//
+//             let f2 = volume_mgr
+//                 .open_file_in_dir(root_dir, "64MB.DAT", Mode::ReadWriteTruncate)
+//                 .await
+//                 .expect("open file");
+//
+//             // Hit file limit
+//
+//             assert!(matches!(
+//                 volume_mgr
+//                     .open_file_in_dir(root_dir, "EMPTY.DAT", Mode::ReadOnly)
+//                     .await,
+//                 Err(Error::TooManyOpenFiles)
+//             ));
+//
+//             volume_mgr.close_file(f).await.expect("close file");
+//             volume_mgr.close_file(f2).await.expect("close file");
+//
+//             // File not found
+//
+//             assert!(matches!(
+//                 volume_mgr
+//                     .open_file_in_dir(root_dir, "README.TXS", Mode::ReadOnly)
+//                     .await,
+//                 Err(Error::NotFound)
+//             ));
+//
+//             // Create a new file
+//             let f3 = volume_mgr
+//                 .open_file_in_dir(root_dir, "NEWFILE.DAT", Mode::ReadWriteCreate)
+//                 .await
+//                 .expect("open file");
+//
+//             volume_mgr.write(f3, b"12345").await.expect("write to file");
+//             volume_mgr.write(f3, b"67890").await.expect("write to file");
+//             volume_mgr.close_file(f3).await.expect("close file");
+//
+//             // Open our new file
+//             let f3 = volume_mgr
+//                 .open_file_in_dir(root_dir, "NEWFILE.DAT", Mode::ReadOnly)
+//                 .await
+//                 .expect("open file");
+//             // Should have 10 bytes in it
+//             assert_eq!(volume_mgr.file_length(f3).expect("file length"), 10);
+//             volume_mgr.close_file(f3).await.expect("close file");
+//
+//             volume_mgr.close_dir(root_dir).expect("close dir");
+//             volume_mgr.close_volume(volume).await.expect("close volume");
+//         });
+//     }
+// }
 
 // ****************************************************************************
 //
