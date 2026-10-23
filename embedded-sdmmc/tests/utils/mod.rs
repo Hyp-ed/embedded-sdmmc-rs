@@ -76,7 +76,11 @@ where
 {
     type Error = Error;
 
-    fn read(&self, blocks: &mut [Block], start_block_idx: BlockIdx) -> Result<(), Self::Error> {
+    async fn read(
+        &self,
+        blocks: &mut [Block],
+        start_block_idx: BlockIdx,
+    ) -> Result<(), Self::Error> {
         let borrow = self.contents.borrow();
         let contents: &[u8] = borrow.as_ref();
         let mut block_idx = start_block_idx;
@@ -94,7 +98,7 @@ where
         Ok(())
     }
 
-    fn write(&self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Self::Error> {
+    async fn write(&self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Self::Error> {
         let mut borrow = self.contents.borrow_mut();
         let contents: &mut [u8] = borrow.as_mut();
         let mut block_idx = start_block_idx;
@@ -110,7 +114,7 @@ where
         Ok(())
     }
 
-    fn num_blocks(&self) -> Result<BlockCount, Self::Error> {
+    async fn num_blocks(&self) -> Result<BlockCount, Self::Error> {
         let borrow = self.contents.borrow();
         let contents: &[u8] = borrow.as_ref();
         let len_blocks = contents.len() / embedded_sdmmc::Block::LEN;
